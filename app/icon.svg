@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0c0d0f"/>
+      <stop offset="100%" stop-color="#0a0b0d"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#176b55"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+
+  <!-- Subtle belt stripes -->
+  <rect x="64" y="140" width="384" height="28" rx="14" fill="#1f2937"/>
+  <rect x="64" y="344" width="384" height="28" rx="14" fill="#1f2937"/>
+
+  <!-- Gi collar -->
+  <path d="M176 172 L256 128 L336 172 L304 220 L256 200 L208 220 Z" fill="#0f172a"/>
+  <path d="M190 182 L256 144 L322 182 L298 214 L256 198 L214 214 Z" fill="#111827"/>
+
+  <!-- Knot / belt -->
+  <rect x="112" y="238" width="288" height="48" rx="24" fill="url(#accent)"/>
+  <rect x="184" y="254" width="144" height="16" rx="8" fill="#0b0b0c" opacity="0.5"/>
+
+  <!-- Letters -->
+  <text x="256" y="306" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="72" font-weight="800" fill="#e5e7eb">BJJ</text>
+</svg>
