@@ -806,6 +806,47 @@ const ROADMAP_ORDER = [
 
 const STORAGE_KEY = "jiu-course-progress";
 
+const BELT_META: Record<
+  string,
+  { label: string; emoji: string; bg: string; text: string; border: string }
+> = {
+  "faixa-branca": {
+    label: "Faixa Branca",
+    emoji: "⚪",
+    bg: "#ffffff",
+    text: "#111827",
+    border: "#d1d5db",
+  },
+  "faixa-azul": {
+    label: "Faixa Azul",
+    emoji: "🔵",
+    bg: "#dbeafe",
+    text: "#1e3a8a",
+    border: "#93c5fd",
+  },
+  "faixa-roxa": {
+    label: "Faixa Roxa",
+    emoji: "🟣",
+    bg: "#ede9fe",
+    text: "#5b21b6",
+    border: "#c4b5fd",
+  },
+  "faixa-marrom": {
+    label: "Faixa Marrom",
+    emoji: "🟤",
+    bg: "#f5e6d8",
+    text: "#7c2d12",
+    border: "#d6b48f",
+  },
+  "faixa-preta": {
+    label: "Faixa Preta",
+    emoji: "⚫",
+    bg: "#111827",
+    text: "#f9fafb",
+    border: "#374151",
+  },
+};
+
 const collectLessons = (sections: Section[]): Lesson[] =>
   sections.flatMap((section) => {
     const direct = section.lessons ?? [];
@@ -818,20 +859,23 @@ const filterSections = (sections: Section[], query: string): Section[] => {
   const q = query.toLowerCase();
 
   const filterSection = (section: Section): Section | null => {
-    const lessons = (section.lessons ?? []).filter((lesson) =>
+    const lessonHits = (section.lessons ?? []).filter((lesson) =>
       lesson.title.toLowerCase().includes(q),
     );
 
-    const childSections = (section.sections ?? [])
+    const nestedHits = (section.sections ?? [])
       .map(filterSection)
       .filter(Boolean) as Section[];
 
-    if (lessons.length === 0 && childSections.length === 0) return null;
+    const titleHit = section.title.toLowerCase().includes(q);
+
+    if (!titleHit && lessonHits.length === 0 && nestedHits.length === 0)
+      return null;
 
     return {
       ...section,
-      lessons,
-      sections: childSections,
+      lessons: titleHit ? section.lessons : lessonHits,
+      sections: nestedHits,
     };
   };
 
@@ -840,7 +884,6 @@ const filterSections = (sections: Section[], query: string): Section[] => {
 
 const orderSections = (sections: Section[]) => {
   const indexMap = new Map(ROADMAP_ORDER.map((id, index) => [id, index]));
-
   return [...sections].sort((a, b) => {
     const aIndex = indexMap.get(a.id) ?? Number.MAX_SAFE_INTEGER;
     const bIndex = indexMap.get(b.id) ?? Number.MAX_SAFE_INTEGER;
@@ -874,6 +917,7 @@ const App = () => {
     () => collectLessons(orderedCourse),
     [orderedCourse],
   );
+
   const totalLessons = allLessons.length;
   const completedLessons = allLessons.filter((l) => progress[l.id]).length;
   const percent = totalLessons
@@ -882,35 +926,28 @@ const App = () => {
 
   const visibleSections = useMemo(() => {
     let sections = filterSections(orderedCourse, query);
+
     if (!showCompletedOnly) return sections;
 
     const filterCompleted = (section: Section): Section | null => {
       const lessons = (section.lessons ?? []).filter(
         (lesson) => progress[lesson.id],
       );
-      const childSections = (section.sections ?? [])
+
+      const children = (section.sections ?? [])
         .map(filterCompleted)
         .filter(Boolean) as Section[];
-      if (lessons.length === 0 && childSections.length === 0) return null;
-      return { ...section, lessons, sections: childSections };
+
+      if (lessons.length === 0 && children.length === 0) return null;
+
+      return { ...section, lessons, sections: children };
     };
 
     return sections.map(filterCompleted).filter(Boolean) as Section[];
-  }, [query, showCompletedOnly, progress]);
+  }, [orderedCourse, progress, query, showCompletedOnly]);
 
   const toggleLesson = (lessonId: string) => {
     setProgress((prev) => ({ ...prev, [lessonId]: !prev[lessonId] }));
-  };
-
-  const markSection = (section: Section, value: boolean) => {
-    const lessons = collectLessons([section]);
-    setProgress((prev) => {
-      const next = { ...prev };
-      lessons.forEach((lesson) => {
-        next[lesson.id] = value;
-      });
-      return next;
-    });
   };
 
   const getSectionProgress = (section: Section) => {
@@ -919,153 +956,296 @@ const App = () => {
     return { done, total: lessons.length };
   };
 
+  const beltBadge = (sectionId: string) => {
+    const belt = BELT_META[sectionId];
+    if (!belt) return null;
+
+    return (
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "0.3rem 0.6rem",
+          borderRadius: 999,
+          background: belt.bg,
+          color: belt.text,
+          border: `1px solid ${belt.border}`,
+          fontWeight: 700,
+          fontSize: "0.8rem",
+        }}
+      >
+        <span aria-hidden>{belt.emoji}</span>
+        {belt.label}
+      </span>
+    );
+  };
+
+  const sectionIcon = (id: string) => {
+    if (id.startsWith("faixa-")) return "🥋";
+    if (id === "drills") return "⚡";
+    if (id === "regras") return "📘";
+    if (id === "nutricao") return "🥗";
+    if (id === "preparacao-fisica") return "🏋️";
+    if (id === "mentalidade") return "🧠";
+    if (id === "condicionamento") return "🔥";
+    if (id === "ferramentas") return "🛠️";
+    if (id === "intro") return "👋";
+    return "📂";
+  };
+
   const renderSection = (section: Section, level: number) => {
     const { done, total } = getSectionProgress(section);
-    const titleStyle = {
-      fontSize: level === 0 ? "1.4rem" : level === 1 ? "1.2rem" : "1rem",
-      margin: "0 0 0.25rem 0",
-    };
+    const isTop = level === 0;
+    const meta = BELT_META[section.id];
 
     return (
       <details
         key={section.id}
-        open={expandAll || level === 0}
-        style={{ marginBottom: "1rem" }}
+        open={expandAll || isTop}
+        style={{
+          marginBottom: "0.9rem",
+          border: "1px solid #e5e7eb",
+          borderRadius: 14,
+          background: "#ffffff",
+          boxShadow: "0 6px 18px rgba(15, 23, 42, 0.05)",
+        }}
       >
         <summary
           style={{
             listStyle: "none",
             cursor: "pointer",
-            padding: "0.5rem 0",
-            borderBottom: "1px solid rgba(255,255,255,0.1)",
+            padding: "0.85rem 1rem",
+            borderBottom: "1px solid #f3f4f6",
           }}
         >
           <div
-            style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
           >
-            <h3 style={titleStyle}>{section.title}</h3>
-            <span style={{ fontSize: "0.9rem", opacity: 0.8 }}>
-              {done}/{total} concluídos
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: isTop ? "1.1rem" : "0.95rem" }}>
+                {sectionIcon(section.id)}
+              </span>
+              <strong
+                style={{
+                  fontSize: isTop ? "1rem" : "0.92rem",
+                  color: "#111827",
+                }}
+              >
+                {section.title}
+              </strong>
+              {isTop && beltBadge(section.id)}
+            </div>
+
+            <div
+              style={{
+                fontSize: "0.82rem",
+                fontWeight: 600,
+                color: "#4b5563",
+                padding: "0.2rem 0.55rem",
+                borderRadius: 999,
+                background: meta ? meta.bg : "#f3f4f6",
+                border: `1px solid ${meta ? meta.border : "#e5e7eb"}`,
+              }}
+            >
+              {done}/{total}
+            </div>
           </div>
         </summary>
 
-        <div style={{ paddingLeft: level === 0 ? "0.75rem" : "1.25rem" }}>
-          <div
-            style={{
-              display: "flex",
-              gap: "0.5rem",
-              margin: "0.5rem 0 0.75rem",
-            }}
-          >
-            <button onClick={() => markSection(section, true)}>
-              Marcar seção
-            </button>
-            <button onClick={() => markSection(section, false)}>
-              Desmarcar seção
-            </button>
-          </div>
-
+        <div
+          style={{
+            padding: "0.85rem 1rem 1rem",
+            paddingLeft: isTop ? "1rem" : "1.25rem",
+          }}
+        >
           {section.lessons && section.lessons.length > 0 && (
-            <ul
-              style={{ listStyle: "none", padding: 0, margin: "0 0 0.75rem 0" }}
-            >
+            <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
               {section.lessons.map((lesson) => (
-                <li key={lesson.id} style={{ marginBottom: "0.5rem" }}>
-                  <label
+                <li
+                  key={lesson.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "0.42rem 0.5rem",
+                    borderRadius: 10,
+                    background: progress[lesson.id] ? "#ecfdf5" : "#f9fafb",
+                    marginBottom: 6,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!progress[lesson.id]}
+                    onChange={() => toggleLesson(lesson.id)}
+                  />
+                  <span
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
+                      textDecoration: progress[lesson.id]
+                        ? "line-through"
+                        : "none",
+                      color: progress[lesson.id] ? "#065f46" : "#111827",
+                      fontSize: "0.92rem",
                     }}
                   >
-                    <input
-                      type="checkbox"
-                      checked={!!progress[lesson.id]}
-                      onChange={() => toggleLesson(lesson.id)}
-                    />
-                    <span
-                      style={{
-                        textDecoration: progress[lesson.id]
-                          ? "line-through"
-                          : "none",
-                      }}
-                    >
-                      {lesson.title}
-                    </span>
-                  </label>
+                    {progress[lesson.id] ? "✅ " : ""}
+                    {lesson.title}
+                  </span>
                 </li>
               ))}
             </ul>
           )}
 
-          {section.sections &&
-            section.sections.map((child) => renderSection(child, level + 1))}
+          {section.sections?.map((child) => renderSection(child, level + 1))}
         </div>
       </details>
     );
   };
 
   return (
-    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "2rem 1.5rem" }}>
-      <header style={{ marginBottom: "2rem" }}>
-        <h1 style={{ marginBottom: "0.5rem" }}>
-          Roadmap do Curso - Manual do Jiu-Jitsu
-        </h1>
-        <p style={{ marginTop: 0, opacity: 0.8 }}>
-          Checklist completo com barra de progresso. Comece pelas faixas
-          iniciais e avance até a faixa preta.
-        </p>
-
+    <div
+      style={{
+        maxWidth: 1080,
+        margin: "0 auto",
+        padding: "2rem 1rem 3rem",
+        color: "#111827",
+      }}
+    >
+      <header
+        style={{
+          background: "#ffffff",
+          border: "1px solid #e5e7eb",
+          borderRadius: 18,
+          padding: "1.25rem",
+          boxShadow: "0 10px 26px rgba(15, 23, 42, 0.07)",
+          marginBottom: "1rem",
+        }}
+      >
         <div
           style={{
-            background: "rgba(255,255,255,0.08)",
-            borderRadius: 999,
-            height: 12,
-            overflow: "hidden",
-            marginTop: "0.75rem",
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 16,
+            flexWrap: "wrap",
           }}
         >
+          <div>
+            <h1 style={{ margin: 0, fontSize: "1.4rem", letterSpacing: -0.2 }}>
+              🥋 Roadmap do Curso — Manual do Jiu-Jitsu
+            </h1>
+            <p style={{ margin: "0.35rem 0 0", color: "#4b5563" }}>
+              Visual limpo, foco em progresso e faixas com identidade.
+            </p>
+          </div>
+
           <div
             style={{
-              width: `${percent}%`,
-              height: "100%",
-              background: "linear-gradient(90deg, #7c3aed, #22c55e)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              flexWrap: "wrap",
             }}
-          />
+          >
+            {Object.keys(BELT_META).map((id) => (
+              <span key={id}>{beltBadge(id)}</span>
+            ))}
+          </div>
         </div>
-        <div style={{ marginTop: "0.5rem", fontSize: "0.95rem", opacity: 0.9 }}>
-          {completedLessons}/{totalLessons} aulas concluídas • {percent}%
+
+        <div style={{ marginTop: "1rem" }}>
+          <div
+            style={{
+              height: 12,
+              borderRadius: 999,
+              overflow: "hidden",
+              background: "#eef2f7",
+              border: "1px solid #e5e7eb",
+            }}
+          >
+            <div
+              style={{
+                width: `${percent}%`,
+                height: "100%",
+                background:
+                  "linear-gradient(90deg, #111827 0%, #2563eb 30%, #7c3aed 60%, #16a34a 100%)",
+                transition: "width .2s ease",
+              }}
+            />
+          </div>
+          <div
+            style={{
+              marginTop: 8,
+              color: "#374151",
+              fontWeight: 600,
+              fontSize: "0.9rem",
+            }}
+          >
+            {completedLessons}/{totalLessons} aulas concluídas • {percent}% 🚀
+          </div>
         </div>
       </header>
 
-      <section style={{ marginBottom: "2rem" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem" }}>
+      <section
+        style={{
+          background: "#ffffff",
+          border: "1px solid #e5e7eb",
+          borderRadius: 16,
+          padding: "0.9rem",
+          boxShadow: "0 8px 18px rgba(15, 23, 42, 0.05)",
+          marginBottom: "1rem",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 10,
+            alignItems: "center",
+          }}
+        >
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar aula ou seção..."
+            placeholder="🔎 Buscar aula ou seção..."
             style={{
-              flex: "1 1 240px",
+              flex: "1 1 260px",
+              minWidth: 220,
+              border: "1px solid #d1d5db",
+              borderRadius: 10,
               padding: "0.6rem 0.75rem",
-              borderRadius: 8,
-              border: "1px solid rgba(255,255,255,0.2)",
-              background: "rgba(255,255,255,0.04)",
-              color: "inherit",
+              background: "#fff",
             }}
           />
+
           <label
-            style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              color: "#374151",
+            }}
           >
             <input
               type="checkbox"
               checked={showCompletedOnly}
               onChange={() => setShowCompletedOnly((prev) => !prev)}
             />
-            Mostrar somente concluídas
+            Somente concluídas
           </label>
+
           <label
-            style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              color: "#374151",
+            }}
           >
             <input
               type="checkbox"
@@ -1074,7 +1254,8 @@ const App = () => {
             />
             Expandir tudo
           </label>
-          <button onClick={() => setProgress({})}>Resetar progresso</button>
+
+          <button onClick={() => setProgress({})}>🧹 Resetar progresso</button>
         </div>
       </section>
 
