@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Settings, Info, ListTodo, User } from "lucide-react";
+import { Settings, Info, ListTodo, User, X } from "lucide-react";
 import { useLifeData } from "../hooks/useLifeData";
 import LifeCalendarCanvas from "../components/LifeCalendarCanvas";
 import DayModal from "../components/DayModal";
@@ -15,6 +15,7 @@ export default function Home() {
     isLoaded,
     updateSquareSize,
     updateDefaultTasks,
+    updateShowHelp,
     updateStatuses,
     updateDayDetails,
   } = useLifeData();
@@ -47,24 +48,122 @@ export default function Home() {
         backgroundColor: "#111",
         color: "#f5f5f5",
         fontFamily: "sans-serif",
+        overflow: "hidden",
       }}
     >
+      <style>{`
+        .absolute { position: absolute; }
+        .relative { position: relative; }
+        .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+        .w-full { width: 100%; }
+        .h-full { height: 100%; }
+        .block { display: block; }
+        .overflow-y-auto { overflow-y: auto; }
+        .overflow-x-hidden { overflow-x: hidden; }
+
+        .header-container {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 16px 32px;
+          background-color: #0a0a0a;
+          border-bottom: 1px solid #222;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+          position: sticky;
+          top: 0;
+          z-index: 100;
+        }
+
+        .header-controls {
+          display: flex;
+          align-items: center;
+          gap: 24px;
+        }
+
+        .legend-bar {
+          display: flex;
+          gap: 24px;
+          padding: 12px 32px;
+          font-size: 0.85rem;
+          background-color: #111;
+          border-bottom: 1px solid #222;
+          color: #aaa;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+          position: sticky;
+          top: 76px;
+          z-index: 90;
+        }
+
+        .legend-items {
+          display: flex;
+          gap: 24px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+
+        .header-title-subtitle {
+          display: block;
+        }
+
+        @media (max-width: 768px) {
+          .header-container {
+            padding: 12px 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+          }
+
+          .header-controls {
+            width: 100%;
+            justify-content: flex-start;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 4px; /* Space for scrollbar */
+          }
+
+          /* Hide scrollbar for header controls but allow scroll */
+          .header-controls::-webkit-scrollbar {
+            display: none;
+          }
+          .header-controls {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+          }
+
+          .header-title-subtitle p {
+            display: none;
+          }
+
+          .header-title-subtitle h1 {
+            font-size: 1.25rem;
+          }
+
+          /* Hide separator lines on mobile to save space */
+          .separator-line {
+            display: none !important;
+          }
+
+          .legend-bar {
+            padding: 10px 16px;
+            top: 105px; /* Re-adjusted for the new two-row mobile header */
+            overflow-x: auto; /* Let legends scroll horizontally */
+            white-space: nowrap;
+          }
+
+          .legend-bar::-webkit-scrollbar {
+            display: none;
+          }
+
+          .legend-items {
+            flex-wrap: nowrap; /* Keep on one line and let it scroll */
+            gap: 16px;
+          }
+        }
+      `}</style>
       {/* Header */}
-      <header
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "16px 32px",
-          backgroundColor: "#0a0a0a",
-          borderBottom: "1px solid #222",
-          boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
-          zIndex: 10,
-        }}
-      >
+      <header className="header-container">
         <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
           <AnalogClock />
-          <div>
+          <div className="header-title-subtitle">
             <h1
               style={{
                 margin: 0,
@@ -88,7 +187,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
+        <div className="header-controls">
           <div
             style={{
               display: "flex",
@@ -121,6 +220,7 @@ export default function Home() {
           </div>
 
           <div
+            className="separator-line"
             style={{ width: "1px", height: "32px", backgroundColor: "#333" }}
           />
 
@@ -186,77 +286,96 @@ export default function Home() {
       </header>
 
       {/* Legend / Info Bar */}
-      <div
-        style={{
-          display: "flex",
-          gap: "24px",
-          padding: "12px 32px",
-          fontSize: "0.85rem",
-          backgroundColor: "#111",
-          borderBottom: "1px solid #222",
-          color: "#aaa",
-          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.3)",
-          zIndex: 5,
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            fontWeight: "500",
-          }}
-        >
-          <span style={{ color: "#4b5563", fontSize: "1.1rem" }}>■</span> Past
-          (Unrecorded)
-        </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            fontWeight: "500",
-          }}
-        >
-          <span style={{ color: "#22c55e", fontSize: "1.1rem" }}>■</span>{" "}
-          Completed
-        </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            fontWeight: "500",
-          }}
-        >
-          <span style={{ color: "#ef4444", fontSize: "1.1rem" }}>■</span> Failed
-          / Missed
-        </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            fontWeight: "500",
-          }}
-        >
-          <span style={{ color: "#d1d5db", fontSize: "1.1rem" }}>□</span> Future
-        </div>
+      {data.showHelp !== false && (
+        <div className="legend-bar">
+          <div className="legend-items">
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontWeight: "500",
+              }}
+            >
+              <span style={{ color: "#4b5563", fontSize: "1.1rem" }}>■</span>{" "}
+              Past (Unrecorded)
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontWeight: "500",
+              }}
+            >
+              <span style={{ color: "#22c55e", fontSize: "1.1rem" }}>■</span>{" "}
+              Completed
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontWeight: "500",
+              }}
+            >
+              <span style={{ color: "#ef4444", fontSize: "1.1rem" }}>■</span>{" "}
+              Failed / Missed
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontWeight: "500",
+              }}
+            >
+              <span style={{ color: "#f97316", fontSize: "1.1rem" }}>■</span>{" "}
+              Today
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                fontWeight: "500",
+              }}
+            >
+              <span style={{ color: "#d1d5db", fontSize: "1.1rem" }}>□</span>{" "}
+              Future
+            </div>
+          </div>
 
-        <div style={{ flex: 1 }}></div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            color: "#888",
-            fontStyle: "italic",
-          }}
-        >
-          <Info size={14} /> Right-click to toggle colors. Drag right-click to
-          paint multiple.
+          <div style={{ flex: 1, minWidth: "10px" }}></div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              color: "#888",
+              fontStyle: "italic",
+            }}
+          >
+            <Info size={14} /> Right-click to toggle colors. Drag right-click to
+            paint multiple.
+            <button
+              onClick={() => updateShowHelp(false)}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#666",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                marginLeft: "12px",
+              }}
+              title="Hide Help"
+            >
+              <X size={14} />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Canvas Area */}
       <main
@@ -268,7 +387,14 @@ export default function Home() {
           minHeight: 0,
         }}
       >
-        <div style={{ flex: 1, position: "relative" }}>
+        <div
+          style={{
+            flex: 1,
+            position: "relative",
+            height: "100%",
+            minHeight: 0,
+          }}
+        >
           <LifeCalendarCanvas
             birthDate={data.birthDate}
             statuses={data.statuses}

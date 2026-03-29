@@ -1,237 +1,317 @@
-import React, { useEffect, useRef } from "react";
-import { differenceInDays, addDays, format } from "date-fns";
-import { DayStatus } from "../hooks/useLifeData";
+import React, { useEffect, useRef, useState } from "react";
+import { format, differenceInDays, addDays } from "date-fns";
+
+// Apple-esque sans-serif font
+const FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+
+const TOTAL_DAYS = 29200; // ~80 years
+const CHAR = "■"; // Filled square
+const FUTURE_CHAR = "□"; // Empty square for future
 
 interface LifeCalendarCanvasProps {
-  birthDate: string;
-  statuses: Record<number, DayStatus>;
-  onUpdateStatus: (indices: number[], status: DayStatus | null) => void;
+  birthDate: string; // YYYY-MM-DD
+  statuses: Record<number, "completed" | "failed">;
+  onUpdateStatus: (indices: number[], status: "completed" | "failed" | null) => void;
   onDayClick: (index: number) => void;
-  squareSize: number;
+  squareSize?: number;
 }
-
-const TOTAL_DAYS = 80 * 365;
-const FONT_FAMILY = "monospace";
-const CHAR = "■";
-const FUTURE_CHAR = "□";
 
 export default function LifeCalendarCanvas({
   birthDate,
   statuses,
   onUpdateStatus,
   onDayClick,
-  squareSize,
+  squareSize = 14,
 }: LifeCalendarCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hudRef = useRef<HTMLDivElement>(null);
 
-  // We bypass React state entirely for interaction to achieve 180+ FPS
+  const [totalHeight, setTotalHeight] = useState(0);
+
+  // Non-React state for the hot render loop
   const stateRef = useRef({
-    width: 0,
-    height: 0,
-    charWidth: 8,
-    cols: 0,
-    hoverIndex: -1 as number,
-    isDragging: false,
-    dragStart: -1 as number,
-    dragEnd: -1 as number,
-    dragTargetStatus: null as DayStatus | null,
     todayIndex: 0,
-    dpr: 1,
+    cols: 0,
+    charWidth: 0,
+    lineHeight: 0,
+    viewportWidth: 0,
+    viewportHeight: 0,
+    hoverIndex: -1,
+    hoverScale: 0,
+    isDragging: false,
+    dragStart: -1,
+    dragEnd: -1,
+    dragTargetStatus: null as "completed" | "failed" | null,
+    needsDraw: true, // Force initial draw
   });
 
-  // Offscreen canvas for caching the static grid
-  const offscreenCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const scrolledInitial = useRef(false);
 
-  // Calculate todayIndex whenever birthDate changes
+  // 1. Compute today index
   useEffect(() => {
-    // Append T00:00:00 to force parsing in local timezone instead of UTC
     const start = new Date(birthDate + "T00:00:00");
     const today = new Date();
     stateRef.current.todayIndex = Math.max(0, differenceInDays(today, start));
+    stateRef.current.needsDraw = true;
   }, [birthDate]);
 
-  // Handle Resize and Cache Regeneration
+  // 2. Measure Layout whenever viewport or squareSize changes
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const measureLayout = () => {
+      const width = Math.max(100, container.clientWidth);
+      const height = Math.max(100, container.clientHeight);
+
+      // Make layout purely mathematical based on squareSize for maximum consistency
+      const totalCharWidth = squareSize + Math.max(2, Math.floor(squareSize * 0.2));
+      const lineHeight = totalCharWidth + Math.max(1, Math.floor(squareSize * 0.1));
+
+      const cols = Math.max(1, Math.floor((width - 40) / totalCharWidth));
+      const rows = Math.ceil(TOTAL_DAYS / cols);
+      const calcHeight = 30 + rows * lineHeight + 30; // 30px padding top/bottom
+
+      stateRef.current.viewportWidth = width;
+      stateRef.current.viewportHeight = height;
+      stateRef.current.lineHeight = lineHeight;
+      stateRef.current.charWidth = totalCharWidth;
+      stateRef.current.cols = cols;
+
+      setTotalHeight(calcHeight);
+      stateRef.current.needsDraw = true;
+
+      // Auto-scroll to today on first load
+      if (!scrolledInitial.current && cols > 0) {
+        const todayRow = Math.floor(stateRef.current.todayIndex / cols);
+        const yPos = 30 + todayRow * lineHeight;
+        const targetScroll = Math.max(0, yPos - height / 2);
+
+        setTimeout(() => {
+          container.scrollTo({ top: targetScroll, behavior: "smooth" });
+          scrolledInitial.current = true;
+        }, 100);
+      }
+    };
+
+    window.addEventListener("resize", measureLayout);
+    measureLayout();
+
+    return () => window.removeEventListener("resize", measureLayout);
+  }, [squareSize, birthDate]);
+
+  // 3. The Render Loop & Event Listeners
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
     if (!canvas || !container) return;
-
     const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) return;
 
-    if (!offscreenCanvasRef.current) {
-      offscreenCanvasRef.current = document.createElement("canvas");
-    }
-    const offCtx = offscreenCanvasRef.current.getContext("2d", {
-      alpha: false,
-    });
-    if (!offCtx) return;
+    let rafId: number;
+    let lastScrollTop = -1;
 
-    const buildCache = () => {
+    const drawFrame = (scrollTop: number) => {
+      const state = stateRef.current;
+      if (state.cols === 0) return;
+
       const dpr = window.devicePixelRatio || 1;
-      const width = container.clientWidth;
 
-      const lineHeight = Math.floor(squareSize * 1.2);
-      const hoverFontSize = Math.floor(squareSize * 1.5);
-
-      // Temporary offCtx setup to measure text accurately
-      offCtx.font = `${squareSize}px ${FONT_FAMILY}`;
-      const charWidth = offCtx.measureText(CHAR).width;
-      const totalCharWidth =
-        charWidth + Math.max(2, Math.floor(squareSize * 0.2));
-      stateRef.current.charWidth = totalCharWidth;
-
-      const cols = Math.max(1, Math.floor((width - 40) / totalCharWidth));
-      stateRef.current.cols = cols;
-
-      const rows = Math.ceil(TOTAL_DAYS / cols);
-      const startX = 20;
-      const startY = 30;
-      const height = startY + rows * lineHeight + 30; // Added 30px bottom padding
-
-      stateRef.current.width = width;
-      stateRef.current.height = height;
-      stateRef.current.dpr = dpr;
-
-      // Setup main canvas
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-
-      // Setup offscreen canvas
-      offscreenCanvasRef.current!.width = width * dpr;
-      offscreenCanvasRef.current!.height = height * dpr;
-
-      offCtx.scale(dpr, dpr);
-      offCtx.fillStyle = "#111"; // Match app background
-      offCtx.fillRect(0, 0, width, height);
-
-      offCtx.font = `${squareSize}px ${FONT_FAMILY}`;
-      offCtx.textBaseline = "top";
-      const today = stateRef.current.todayIndex;
-
-      // Draw all days to the offscreen canvas (Heavy operation, done ONCE)
-      for (let i = 0; i < TOTAL_DAYS; i++) {
-        const col = i % cols;
-        const row = Math.floor(i / cols);
-        const x = startX + col * totalCharWidth;
-        const y = startY + row * lineHeight;
-
-        // Color logic
-        if (i > today) {
-          offCtx.fillStyle = "#d1d5db";
-        } else {
-          const status = statuses[i];
-          if (status === "completed") offCtx.fillStyle = "#22c55e";
-          else if (status === "failed") offCtx.fillStyle = "#ef4444";
-          else offCtx.fillStyle = "#4b5563";
-        }
-
-        offCtx.fillText(i > today ? FUTURE_CHAR : CHAR, x, y);
+      if (
+        canvas.width !== state.viewportWidth * dpr ||
+        canvas.height !== state.viewportHeight * dpr
+      ) {
+        canvas.width = state.viewportWidth * dpr;
+        canvas.height = state.viewportHeight * dpr;
+        canvas.style.width = `${state.viewportWidth}px`;
+        canvas.style.height = `${state.viewportHeight}px`;
       }
 
-      drawFrame();
-    };
-
-    const drawFrame = () => {
-      const {
-        width,
-        height,
-        dpr,
-        hoverIndex,
-        isDragging,
-        dragStart,
-        dragEnd,
-        cols,
-        charWidth,
-      } = stateRef.current;
-
-      // Reset transform
       ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
 
-      // 1. Draw cached background directly (Blazing fast)
-      ctx.drawImage(
-        offscreenCanvasRef.current!,
-        0,
-        0,
-        width * dpr,
-        height * dpr,
+      // Background
+      ctx.fillStyle = "#111";
+      ctx.fillRect(0, 0, state.viewportWidth, state.viewportHeight);
+
+      const startX = 20;
+      const startY = 30;
+
+      // Only loop through rows that are visible on screen
+      const firstVisibleRow = Math.max(0, Math.floor((scrollTop - startY) / state.lineHeight));
+      const lastVisibleRow = Math.min(
+        Math.ceil(TOTAL_DAYS / state.cols),
+        Math.floor((scrollTop + state.viewportHeight - startY) / state.lineHeight) + 1
       );
 
-      ctx.scale(dpr, dpr);
+      ctx.font = `${squareSize}px ${FONT_FAMILY}`;
       ctx.textBaseline = "top";
 
-      const lineHeight = Math.floor(squareSize * 1.2);
-      const hoverFontSize = Math.floor(squareSize * 1.5);
+      // Draw Grid with extreme performance (Rectangles instead of Fonts)
+      const paths = {
+        past: new Path2D(),
+        completed: new Path2D(),
+        failed: new Path2D(),
+        todayUnrecorded: new Path2D(),
+        future: new Path2D(),
+      };
 
-      const startX = 20;
-      const startY = 30;
+      const rectSize = squareSize;
+      const offsetX = Math.floor((state.charWidth - rectSize) / 2);
+      const offsetY = Math.floor((state.lineHeight - rectSize) / 2);
 
-      // 2. Draw active drag selection
-      if (isDragging && dragStart !== -1 && dragEnd !== -1) {
-        const min = Math.min(dragStart, dragEnd);
-        const max = Math.max(dragStart, dragEnd);
+      for (let row = firstVisibleRow; row <= lastVisibleRow; row++) {
+        const y = startY + row * state.lineHeight - scrollTop + offsetY;
+        for (let col = 0; col < state.cols; col++) {
+          const i = row * state.cols + col;
+          if (i >= TOTAL_DAYS) break;
 
-        ctx.fillStyle = "rgba(59, 130, 246, 0.5)"; // Semi-transparent blue
-        for (let i = min; i <= max; i++) {
-          const col = i % cols;
-          const row = Math.floor(i / cols);
-          const x = startX + col * charWidth;
-          const y = startY + row * lineHeight;
-          ctx.fillRect(x, y - 2, charWidth, lineHeight);
+          if (i === state.hoverIndex && state.hoverScale > 0) continue;
+
+          const x = startX + col * state.charWidth + offsetX;
+
+          if (i > state.todayIndex) {
+            paths.future.rect(x, y, rectSize, rectSize);
+          } else if (i === state.todayIndex && !statuses[i]) {
+            paths.todayUnrecorded.rect(x, y, rectSize, rectSize);
+          } else {
+            const status = statuses[i];
+            if (status === "completed") paths.completed.rect(x, y, rectSize, rectSize);
+            else if (status === "failed") paths.failed.rect(x, y, rectSize, rectSize);
+            else paths.past.rect(x, y, rectSize, rectSize);
+          }
         }
       }
 
-      // 3. Draw hover effect over the cache
-      if (hoverIndex !== -1) {
-        const col = hoverIndex % cols;
-        const row = Math.floor(hoverIndex / cols);
-        const x = startX + col * charWidth;
-        const y = startY + row * lineHeight;
+      ctx.fillStyle = "#555";
+      ctx.fill(paths.past);
 
-        const charToDraw =
-          hoverIndex > stateRef.current.todayIndex ? FUTURE_CHAR : CHAR;
+      ctx.fillStyle = "#22c55e";
+      ctx.fill(paths.completed);
 
-        // Clear background for the hovered char
-        ctx.fillStyle = "#111";
-        ctx.fillRect(x - 2, y - 2, charWidth + 4, lineHeight + 4);
+      ctx.fillStyle = "#ef4444";
+      ctx.fill(paths.failed);
 
-        // Draw enlarged
-        const status = statuses[hoverIndex];
-        if (hoverIndex > stateRef.current.todayIndex) ctx.fillStyle = "#d1d5db";
-        else if (status === "completed") ctx.fillStyle = "#22c55e";
-        else if (status === "failed") ctx.fillStyle = "#ef4444";
-        else ctx.fillStyle = "#4b5563";
+      ctx.fillStyle = "#f97316";
+      ctx.fill(paths.todayUnrecorded);
 
-        ctx.font = `bold ${hoverFontSize}px ${FONT_FAMILY}`;
-        ctx.fillText(
-          charToDraw,
-          x - (hoverFontSize - squareSize) / 2,
-          y - (hoverFontSize - squareSize) / 2,
-        );
+      ctx.strokeStyle = "#555";
+      ctx.lineWidth = 1;
+      ctx.stroke(paths.future);
+
+      // Draw Drag Selection
+      if (state.isDragging && state.dragStart !== -1 && state.dragEnd !== -1) {
+        const min = Math.min(state.dragStart, state.dragEnd);
+        const max = Math.max(state.dragStart, state.dragEnd);
+
+        ctx.fillStyle = "rgba(59, 130, 246, 0.5)";
+        for (let i = min; i <= max; i++) {
+          const col = i % state.cols;
+          const row = Math.floor(i / state.cols);
+          if (row < firstVisibleRow || row > lastVisibleRow) continue;
+
+          const x = startX + col * state.charWidth;
+          const y = startY + row * state.lineHeight - scrollTop;
+          ctx.fillRect(x - 2, y - 2, state.charWidth, state.lineHeight);
+        }
+      }
+
+      // Draw Hover Item
+      if (state.hoverIndex !== -1 && state.hoverScale > 0) {
+        const col = state.hoverIndex % state.cols;
+        const row = Math.floor(state.hoverIndex / state.cols);
+        const x = startX + col * state.charWidth;
+        const y = startY + row * state.lineHeight - scrollTop;
+
+        const baseHoverFontSize = Math.floor(squareSize * 3.5);
+        const currentHoverFontSize = squareSize + (baseHoverFontSize - squareSize) * state.hoverScale;
+
+        const sizeDiff = currentHoverFontSize - squareSize;
+        const hoverX = x - sizeDiff * 0.35;
+        const hoverY = y - sizeDiff * 0.45;
+
+        ctx.shadowColor = "rgba(0,0,0,0.8)";
+        ctx.shadowBlur = 10 * state.hoverScale;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 4 * state.hoverScale;
+
+        if (state.hoverIndex > state.todayIndex) {
+          ctx.fillStyle = "#ffffff";
+        } else if (state.hoverIndex === state.todayIndex && !statuses[state.hoverIndex]) {
+          ctx.fillStyle = "#fbd38d";
+        } else {
+          const status = statuses[state.hoverIndex];
+          if (status === "completed") ctx.fillStyle = "#4ade80";
+          else if (status === "failed") ctx.fillStyle = "#f87171";
+          else ctx.fillStyle = "#9ca3af";
+        }
+
+        const hRectSize = currentHoverFontSize;
+        const hOffsetX = startX + col * state.charWidth + (state.charWidth - hRectSize) / 2;
+        const hOffsetY = startY + row * state.lineHeight - scrollTop + (state.lineHeight - hRectSize) / 2;
+
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 2 * state.hoverScale;
+        
+        if (state.hoverIndex > state.todayIndex) {
+          ctx.strokeRect(hOffsetX, hOffsetY, hRectSize, hRectSize);
+        } else {
+          ctx.strokeRect(hOffsetX, hOffsetY, hRectSize, hRectSize);
+          ctx.fillRect(hOffsetX, hOffsetY, hRectSize, hRectSize);
+        }
+        ctx.shadowColor = "transparent";
       }
     };
 
-    let animationFrameId: number;
-    const requestDraw = () => {
-      cancelAnimationFrame(animationFrameId);
-      animationFrameId = requestAnimationFrame(drawFrame);
+    const renderLoop = () => {
+      let shouldDraw = false;
+      const currentScrollTop = container.scrollTop;
+      const state = stateRef.current;
+
+      if (currentScrollTop !== lastScrollTop) {
+        shouldDraw = true;
+      }
+
+      // Smooth Hover Animation
+      if (state.hoverIndex !== -1 && state.hoverScale < 1) {
+        state.hoverScale = Math.min(1, state.hoverScale + 0.15);
+        shouldDraw = true;
+      } else if (state.hoverIndex === -1 && state.hoverScale > 0) {
+        state.hoverScale = 0;
+        shouldDraw = true;
+      }
+
+      if (state.needsDraw) {
+        shouldDraw = true;
+        state.needsDraw = false;
+      }
+
+      if (shouldDraw) {
+        drawFrame(currentScrollTop);
+        lastScrollTop = currentScrollTop;
+      }
+
+      rafId = requestAnimationFrame(renderLoop);
     };
 
-    const getIndexFromEvent = (e: MouseEvent) => {
+    // Start loop
+    rafId = requestAnimationFrame(renderLoop);
+
+    const getIndexFromEvent = (e: MouseEvent | TouchEvent) => {
       const rect = canvas.getBoundingClientRect();
-      const x = e.clientX - rect.left - 20; // 20px padding
-      const y = e.clientY - rect.top - 30; // 30px padding
+      const clientX = e instanceof MouseEvent ? e.clientX : e.touches[0].clientX;
+      const clientY = e instanceof MouseEvent ? e.clientY : e.touches[0].clientY;
+
+      // Calculate relative to the canvas itself
+      const x = clientX - rect.left - 20;
+      // Add scrollTop because rect.top is relative to viewport, but our grid lives in a scrolled space
+      const y = (clientY - rect.top) + container.scrollTop - 30; 
 
       if (x < 0 || y < 0) return -1;
 
-      const lineHeight = Math.floor(squareSize * 1.2);
-
       const col = Math.floor(x / stateRef.current.charWidth);
-      const row = Math.floor(y / lineHeight);
+      const row = Math.floor(y / stateRef.current.lineHeight);
 
       if (col >= stateRef.current.cols) return -1;
 
@@ -241,18 +321,15 @@ export default function LifeCalendarCanvas({
       return index;
     };
 
-    // Fast Native Event Listeners
     const onMouseMove = (e: MouseEvent) => {
       const index = getIndexFromEvent(e);
       const state = stateRef.current;
 
-      let needsDraw = false;
-
       if (index !== state.hoverIndex) {
         state.hoverIndex = index;
-        needsDraw = true;
+        state.hoverScale = 0;
+        state.needsDraw = true;
 
-        // Update cursor style
         if (index !== -1 && index <= state.todayIndex) {
           canvas.style.cursor = "pointer";
         } else {
@@ -261,92 +338,59 @@ export default function LifeCalendarCanvas({
 
         if (hudRef.current) {
           if (index !== -1) {
-            // Append T00:00:00 to force parsing in local timezone instead of UTC
             const date = addDays(new Date(birthDate + "T00:00:00"), index);
             let statusText = "Past (Unrecorded)";
-
-            if (index > state.todayIndex) {
-              statusText = "Future";
-            } else {
-              const s = statuses[index];
-              if (s === "completed") statusText = "Completed";
-              else if (s === "failed") statusText = "Failed";
-            }
+            if (index > state.todayIndex) statusText = "Future";
+            else if (index === state.todayIndex && !statuses[index]) statusText = "Today";
+            else if (statuses[index] === "completed") statusText = "Completed";
+            else if (statuses[index] === "failed") statusText = "Failed";
 
             hudRef.current.style.opacity = "1";
             hudRef.current.innerHTML = `
-              <div style="font-size: 0.85rem; color: #888; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">Day ${index + 1}</div>
-              <div style="font-size: 1.1rem; font-weight: bold; margin: 4px 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">${format(date, "MMMM do, yyyy")}</div>
-              <div style="font-size: 0.9rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: ${
-                statusText === "Completed"
-                  ? "#22c55e"
-                  : statusText === "Failed"
-                    ? "#ef4444"
-                    : statusText === "Future"
-                      ? "#d1d5db"
-                      : "#888"
-              };">${statusText}</div>
-            `;
+              <div style="font-size: 0.85rem; color: #888; white-space: nowrap;">Day ${index + 1}</div>
+              <div style="font-size: 1.1rem; font-weight: bold; margin: 4px 0; white-space: nowrap;">${format(date, "MMMM do, yyyy")}</div>
+              <div style="font-size: 0.9rem; white-space: nowrap; color: ${
+                statusText === "Completed" ? "#22c55e" : statusText === "Failed" ? "#ef4444" : statusText === "Future" ? "#d1d5db" : statusText === "Today" ? "#f97316" : "#aaa"
+              }">${statusText}</div>`;
           } else {
             hudRef.current.style.opacity = "0";
           }
         }
       }
 
-      if (state.isDragging && index !== -1 && index !== state.dragEnd) {
+      if (state.isDragging && index !== -1 && index <= state.todayIndex) {
         state.dragEnd = index;
-        needsDraw = true;
+        state.needsDraw = true;
       }
-
-      if (needsDraw) requestDraw();
     };
 
     const onMouseDown = (e: MouseEvent) => {
-      // Prevent default to stop text selection or right-click menu
-      e.preventDefault();
-
       const index = getIndexFromEvent(e);
+      if (index === -1) return;
+      const state = stateRef.current;
 
-      if (index !== -1 && index <= stateRef.current.todayIndex) {
-        const state = stateRef.current;
-
-        // Right click handles color changing exclusively now
-        if (e.button === 2) {
-          const currentStatus = statuses[index];
-          let nextStatus: DayStatus | null = null;
-
-          if (!currentStatus) nextStatus = "completed";
-          else if (currentStatus === "completed") nextStatus = "failed";
-
-          state.isDragging = true;
-          state.dragStart = index;
-          state.dragEnd = index;
-          state.dragTargetStatus = nextStatus;
-
-          requestDraw();
-          return;
-        }
-
-        // Left click is just for opening modal, so we record it but don't drag-paint
+      if (e.button === 2 && index <= state.todayIndex) {
+        state.isDragging = true;
         state.dragStart = index;
         state.dragEnd = index;
-        // isDragging is false for left clicks to avoid painting
+        
+        const current = statuses[index];
+        if (!current) state.dragTargetStatus = "completed";
+        else if (current === "completed") state.dragTargetStatus = "failed";
+        else state.dragTargetStatus = null;
+
+        state.needsDraw = true;
+      } else {
+        state.dragStart = index;
+        state.dragEnd = index;
       }
     };
 
     const onClick = (e: MouseEvent) => {
       const index = getIndexFromEvent(e);
-      if (
-        index !== -1 &&
-        index <= stateRef.current.todayIndex &&
-        e.button === 0
-      ) {
+      if (index !== -1 && index <= stateRef.current.todayIndex && e.button === 0) {
         onDayClick(index);
       }
-    };
-
-    const onContextMenu = (e: MouseEvent) => {
-      e.preventDefault(); // Stop native right-click menu
     };
 
     const onMouseUp = () => {
@@ -354,56 +398,62 @@ export default function LifeCalendarCanvas({
       if (state.isDragging && state.dragStart !== -1 && state.dragEnd !== -1) {
         const min = Math.min(state.dragStart, state.dragEnd);
         const max = Math.max(state.dragStart, state.dragEnd);
-
         const indices = [];
         for (let i = min; i <= max; i++) indices.push(i);
-
-        // This will trigger a React re-render of the parent, which passes new statuses
         onUpdateStatus(indices, state.dragTargetStatus);
       }
       state.isDragging = false;
       state.dragStart = -1;
       state.dragEnd = -1;
-      requestDraw();
+      state.needsDraw = true;
     };
 
     const onMouseLeave = () => {
       stateRef.current.hoverIndex = -1;
       stateRef.current.isDragging = false;
+      stateRef.current.needsDraw = true;
       if (hudRef.current) hudRef.current.style.opacity = "0";
-      requestDraw();
     };
 
     canvas.addEventListener("mousemove", onMouseMove);
     canvas.addEventListener("mousedown", onMouseDown);
     canvas.addEventListener("click", onClick);
-    canvas.addEventListener("contextmenu", onContextMenu);
+    canvas.addEventListener("contextmenu", (e) => e.preventDefault());
     window.addEventListener("mouseup", onMouseUp);
     canvas.addEventListener("mouseleave", onMouseLeave);
-    window.addEventListener("resize", buildCache);
-
-    buildCache();
 
     return () => {
+      cancelAnimationFrame(rafId);
       canvas.removeEventListener("mousemove", onMouseMove);
       canvas.removeEventListener("mousedown", onMouseDown);
       canvas.removeEventListener("click", onClick);
-      canvas.removeEventListener("contextmenu", onContextMenu);
       window.removeEventListener("mouseup", onMouseUp);
       canvas.removeEventListener("mouseleave", onMouseLeave);
-      window.removeEventListener("resize", buildCache);
-      cancelAnimationFrame(animationFrameId);
     };
-  }, [birthDate, statuses, onUpdateStatus, onDayClick, squareSize]); // Depend on statuses and size to rebuild cache
+  }, [birthDate, statuses, onUpdateStatus, onDayClick, squareSize]);
 
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-full overflow-y-auto overflow-x-hidden"
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        overflowY: "auto",
+        overflowX: "hidden",
+        WebkitOverflowScrolling: "touch",
+      }}
     >
-      <canvas ref={canvasRef} className="block w-full" />
+      {/* Invisible element to force scroll height */}
+      <div style={{ height: `${totalHeight}px`, width: 1 }} />
+      
+      {/* Fixed canvas that sticks to viewport */}
+      <div style={{ position: "sticky", top: 0, left: 0, width: "100%", height: "100%", marginTop: `-${totalHeight}px` }}>
+        <canvas ref={canvasRef} style={{ display: "block", width: "100%", height: "100%" }} />
+      </div>
 
-      {/* Fixed HUD Overlay */}
       <div
         ref={hudRef}
         style={{
@@ -421,7 +471,6 @@ export default function LifeCalendarCanvas({
           borderRadius: "12px",
           boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
           width: "250px",
-          height: "100px",
           boxSizing: "border-box",
           color: "#fff",
         }}

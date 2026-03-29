@@ -6,6 +6,7 @@ export interface Task {
   id: string;
   text: string;
   completed: boolean;
+  duration?: number; // Duration in minutes (1-90)
 }
 
 export interface DayDetails {
@@ -21,6 +22,7 @@ export interface LifeData {
   days: Record<number, DayDetails>; // Map of day index to detailed info
   squareSize?: number; // Size of the canvas squares
   defaultTasks?: Task[]; // List of default daily tasks
+  showHelp?: boolean; // Whether to show the legend/help bar
 }
 
 const DEFAULT_DATA: LifeData = {
@@ -30,6 +32,7 @@ const DEFAULT_DATA: LifeData = {
   days: {},
   squareSize: 14,
   defaultTasks: [],
+  showHelp: true,
 };
 
 const STORAGE_KEY = "life_calendar_data";
@@ -76,6 +79,10 @@ export function useLifeData() {
 
   const updateDefaultTasks = useCallback((defaultTasks: Task[]) => {
     setData((prev) => ({ ...prev, defaultTasks }));
+  }, []);
+
+  const updateShowHelp = useCallback((showHelp: boolean) => {
+    setData((prev) => ({ ...prev, showHelp }));
   }, []);
 
   const updateStatuses = useCallback(
@@ -171,6 +178,7 @@ export function useLifeData() {
     updateBirthDate,
     updateSquareSize,
     updateDefaultTasks,
+    updateShowHelp,
     updateStatuses,
     updateDayDetails,
     importData,

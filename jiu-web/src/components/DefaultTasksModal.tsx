@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Plus, Trash2, Save } from "lucide-react";
+import { X, Plus, Trash2, Save, Clock } from "lucide-react";
 import { Task } from "../hooks/useLifeData";
 
 interface DefaultTasksModalProps {
@@ -17,14 +17,14 @@ export default function DefaultTasksModal({
 }: DefaultTasksModalProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskText, setNewTaskText] = useState("");
+  const [newTaskDuration, setNewTaskDuration] = useState<number | "">("");
 
   useEffect(() => {
     if (isOpen) {
       // Clone so we don't mutate external state directly
-      setTasks(
-        (defaultTasks || []).map((t) => ({ ...t, completed: false }))
-      );
+      setTasks((defaultTasks || []).map((t) => ({ ...t, completed: false })));
       setNewTaskText("");
+      setNewTaskDuration("");
     }
   }, [isOpen, defaultTasks]);
 
@@ -38,10 +38,13 @@ export default function DefaultTasksModal({
       id: crypto.randomUUID(),
       text: newTaskText.trim(),
       completed: false, // Default tasks are never "completed" in the template
+      duration:
+        typeof newTaskDuration === "number" ? newTaskDuration : undefined,
     };
 
     setTasks([...tasks, newTask]);
     setNewTaskText("");
+    setNewTaskDuration("");
   };
 
   const handleDeleteTask = (id: string) => {
@@ -63,7 +66,8 @@ export default function DefaultTasksModal({
           <div>
             <h2 style={styles.title}>Daily Default Tasks</h2>
             <p style={styles.subtitle}>
-              These tasks will be automatically added to any new day you click on.
+              These tasks will be automatically added to any new day you click
+              on.
             </p>
           </div>
           <button onClick={onClose} style={styles.iconButton}>
@@ -79,7 +83,27 @@ export default function DefaultTasksModal({
             )}
             {tasks.map((task) => (
               <div key={task.id} style={styles.taskItem}>
-                <span style={styles.taskText}>{task.text}</span>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                >
+                  <span style={styles.taskText}>{task.text}</span>
+                  {task.duration && (
+                    <span
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        fontSize: "0.8rem",
+                        color: "#888",
+                        backgroundColor: "#222",
+                        padding: "2px 6px",
+                        borderRadius: "10px",
+                      }}
+                    >
+                      <Clock size={12} /> {task.duration}m
+                    </span>
+                  )}
+                </div>
                 <button
                   onClick={() => handleDeleteTask(task.id)}
                   style={styles.deleteButton}
@@ -97,8 +121,40 @@ export default function DefaultTasksModal({
               value={newTaskText}
               onChange={(e) => setNewTaskText(e.target.value)}
               placeholder="E.g., Read 10 pages, Drink 2L water..."
-              style={styles.input}
+              style={{ ...styles.input, flex: 2 }}
             />
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                backgroundColor: "#1a1a1a",
+                border: "1px solid #333",
+                borderRadius: "6px",
+                padding: "0 8px",
+                flex: 1,
+              }}
+            >
+              <Clock size={16} color="#888" />
+              <input
+                type="number"
+                min="1"
+                max="90"
+                value={newTaskDuration}
+                onChange={(e) =>
+                  setNewTaskDuration(
+                    e.target.value ? Number(e.target.value) : "",
+                  )
+                }
+                placeholder="Min"
+                style={{
+                  ...styles.input,
+                  border: "none",
+                  backgroundColor: "transparent",
+                  padding: "10px 8px",
+                  width: "100%",
+                }}
+              />
+            </div>
             <button type="submit" style={styles.addButton}>
               <Plus size={20} />
             </button>
@@ -132,6 +188,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    padding: "16px",
+    boxSizing: "border-box",
     zIndex: 1000,
   },
   modal: {
@@ -141,6 +199,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: "90%",
     maxWidth: "500px",
     display: "flex",
+    boxSizing: "border-box",
     flexDirection: "column",
     boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
     color: "#fff",
@@ -150,7 +209,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    padding: "20px 24px",
+    padding: "16px",
     borderBottom: "1px solid #222",
   },
   title: {
@@ -176,7 +235,7 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "4px",
   },
   content: {
-    padding: "24px",
+    padding: "16px",
     display: "flex",
     flexDirection: "column",
     gap: "16px",
@@ -219,9 +278,11 @@ const styles: Record<string, React.CSSProperties> = {
   taskForm: {
     display: "flex",
     gap: "8px",
+    flexWrap: "wrap",
   },
   input: {
-    flex: 1,
+    flex: "1 1 100px",
+    boxSizing: "border-box",
     backgroundColor: "#1a1a1a",
     border: "1px solid #333",
     color: "#fff",
@@ -245,7 +306,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     justifyContent: "flex-end",
     gap: "12px",
-    padding: "16px 24px",
+    padding: "16px",
     borderTop: "1px solid #222",
     backgroundColor: "#0a0a0a",
     borderRadius: "0 0 12px 12px",

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Plus, Trash2, Save } from "lucide-react";
+import { X, Plus, Trash2, Save, Clock } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { DayDetails, Task, DayStatus } from "../hooks/useLifeData";
 
@@ -25,6 +25,7 @@ export default function DayModal({
   const [tasks, setTasks] = useState<Task[]>([]);
   const [journal, setJournal] = useState("");
   const [newTaskText, setNewTaskText] = useState("");
+  const [newTaskDuration, setNewTaskDuration] = useState<number | "">("");
   const [status, setStatus] = useState<DayStatus | undefined>(undefined);
 
   // Sync state when opened
@@ -41,6 +42,7 @@ export default function DayModal({
       setJournal(details?.journal || "");
       setStatus(details?.status);
       setNewTaskText("");
+      setNewTaskDuration("");
     }
   }, [isOpen, dayIndex, details]);
 
@@ -56,10 +58,13 @@ export default function DayModal({
       id: crypto.randomUUID(),
       text: newTaskText.trim(),
       completed: false,
+      duration:
+        typeof newTaskDuration === "number" ? newTaskDuration : undefined,
     };
 
     setTasks([...tasks, newTask]);
     setNewTaskText("");
+    setNewTaskDuration("");
   };
 
   const handleToggleTask = (id: string) => {
@@ -154,16 +159,37 @@ export default function DayModal({
                       onChange={() => handleToggleTask(task.id)}
                       style={styles.checkbox}
                     />
-                    <span
+                    <div
                       style={{
-                        textDecoration: task.completed
-                          ? "line-through"
-                          : "none",
-                        color: task.completed ? "#888" : "#fff",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "2px",
                       }}
                     >
-                      {task.text}
-                    </span>
+                      <span
+                        style={{
+                          textDecoration: task.completed
+                            ? "line-through"
+                            : "none",
+                          color: task.completed ? "#888" : "#fff",
+                        }}
+                      >
+                        {task.text}
+                      </span>
+                      {task.duration && (
+                        <span
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "4px",
+                            fontSize: "0.75rem",
+                            color: "#888",
+                          }}
+                        >
+                          <Clock size={10} /> {task.duration}m
+                        </span>
+                      )}
+                    </div>
                   </label>
                   <button
                     onClick={() => handleDeleteTask(task.id)}
@@ -182,8 +208,40 @@ export default function DayModal({
                 value={newTaskText}
                 onChange={(e) => setNewTaskText(e.target.value)}
                 placeholder="Add a new task..."
-                style={styles.input}
+                style={{ ...styles.input, flex: 2 }}
               />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  backgroundColor: "#1a1a1a",
+                  border: "1px solid #333",
+                  borderRadius: "6px",
+                  padding: "0 8px",
+                  flex: 1,
+                }}
+              >
+                <Clock size={16} color="#888" />
+                <input
+                  type="number"
+                  min="1"
+                  max="90"
+                  value={newTaskDuration}
+                  onChange={(e) =>
+                    setNewTaskDuration(
+                      e.target.value ? Number(e.target.value) : "",
+                    )
+                  }
+                  placeholder="Min"
+                  style={{
+                    ...styles.input,
+                    border: "none",
+                    backgroundColor: "transparent",
+                    padding: "10px 8px",
+                    width: "100%",
+                  }}
+                />
+              </div>
               <button type="submit" style={styles.addButton}>
                 <Plus size={20} />
               </button>
@@ -236,6 +294,8 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    padding: "16px",
+    boxSizing: "border-box",
     zIndex: 1000,
   },
   modal: {
@@ -245,6 +305,7 @@ const styles: Record<string, React.CSSProperties> = {
     width: "90%",
     maxWidth: "500px",
     maxHeight: "85vh",
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
@@ -255,7 +316,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    padding: "20px 24px",
+    padding: "16px",
     borderBottom: "1px solid #222",
   },
   title: {
@@ -280,9 +341,11 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: "4px",
   },
   content: {
-    padding: "24px",
+    padding: "16px",
     flex: 1,
+    minHeight: 0,
     overflowY: "auto",
+    boxSizing: "border-box",
     display: "flex",
     flexDirection: "column",
     gap: "24px",
@@ -300,7 +363,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   statusGroup: {
     display: "flex",
-    gap: "12px",
+    gap: "8px",
+    flexWrap: "wrap",
   },
   statusButton: {
     flex: 1,
@@ -358,9 +422,11 @@ const styles: Record<string, React.CSSProperties> = {
   taskForm: {
     display: "flex",
     gap: "8px",
+    flexWrap: "wrap",
   },
   input: {
-    flex: 1,
+    flex: "1 1 100px",
+    boxSizing: "border-box",
     backgroundColor: "#1a1a1a",
     border: "1px solid #333",
     color: "#fff",
@@ -397,7 +463,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     justifyContent: "flex-end",
     gap: "12px",
-    padding: "16px 24px",
+    padding: "16px",
     borderTop: "1px solid #222",
     backgroundColor: "#0a0a0a",
     borderRadius: "0 0 12px 12px",
