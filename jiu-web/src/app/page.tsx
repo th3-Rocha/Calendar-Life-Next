@@ -1,26 +1,23 @@
 "use client";
 
 import React, { useState } from "react";
-import { Settings, Info, ListTodo } from "lucide-react";
+import Link from "next/link";
+import { Settings, Info, ListTodo, User } from "lucide-react";
 import { useLifeData } from "../hooks/useLifeData";
 import LifeCalendarCanvas from "../components/LifeCalendarCanvas";
-import JSONModal from "../components/JSONModal";
 import DayModal from "../components/DayModal";
 import DefaultTasksModal from "../components/DefaultTasksModal";
+import AnalogClock from "../components/AnalogClock";
 
 export default function Home() {
   const {
     data,
     isLoaded,
-    updateBirthDate,
     updateSquareSize,
     updateDefaultTasks,
     updateStatuses,
     updateDayDetails,
-    importData,
-    exportData,
   } = useLifeData();
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDefaultTasksModalOpen, setIsDefaultTasksModalOpen] = useState(false);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(null);
 
@@ -58,29 +55,58 @@ export default function Home() {
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          padding: "16px 24px",
-          backgroundColor: "#000",
-          borderBottom: "1px solid #333",
+          padding: "16px 32px",
+          backgroundColor: "#0a0a0a",
+          borderBottom: "1px solid #222",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+          zIndex: 10,
         }}
       >
-        <div>
-          <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: "bold" }}>
-            Life Calendar To-Do
-          </h1>
-          <p
-            style={{ margin: "4px 0 0 0", fontSize: "0.85rem", color: "#888" }}
-          >
-            ~80 Years • ~29,200 Days • Make them count.
-          </p>
+        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+          <AnalogClock />
+          <div>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "1.5rem",
+                fontWeight: "bold",
+                letterSpacing: "-0.5px",
+              }}
+            >
+              {data.name ? `${data.name}'s Life` : "Life Calendar"}
+            </h1>
+            <p
+              style={{
+                margin: "4px 0 0 0",
+                fontSize: "0.85rem",
+                color: "#888",
+                letterSpacing: "0.2px",
+              }}
+            >
+              ~80 Years • 29,200 Days • Make them count.
+            </p>
+          </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "6px",
+              alignItems: "center",
+            }}
+          >
             <label
               htmlFor="squareSize"
-              style={{ fontSize: "0.75rem", color: "#888" }}
+              style={{
+                fontSize: "0.7rem",
+                color: "#666",
+                textTransform: "uppercase",
+                fontWeight: "bold",
+              }}
             >
-              Square Size
+              Zoom
             </label>
             <input
               id="squareSize"
@@ -90,71 +116,72 @@ export default function Home() {
               step="2"
               value={data.squareSize || 14}
               onChange={(e) => updateSquareSize(Number(e.target.value))}
-              style={{ width: "100px" }}
+              style={{ width: "80px", cursor: "pointer", accentColor: "#fff" }}
             />
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-            <label
-              htmlFor="birthdate"
-              style={{ fontSize: "0.75rem", color: "#888" }}
-            >
-              Birth Date
-            </label>
-            <input
-              id="birthdate"
-              type="date"
-              value={data.birthDate}
-              onChange={(e) => updateBirthDate(e.target.value)}
+          <div
+            style={{ width: "1px", height: "32px", backgroundColor: "#333" }}
+          />
+
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button
+              onClick={() => setIsDefaultTasksModalOpen(true)}
               style={{
-                padding: "6px",
-                borderRadius: "4px",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "8px 16px",
+                backgroundColor: "transparent",
+                color: "#ddd",
                 border: "1px solid #444",
-                backgroundColor: "#222",
-                color: "#fff",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "0.85rem",
+                fontWeight: "600",
+                transition: "all 0.2s",
               }}
-            />
+              onMouseOver={(e) =>
+                (e.currentTarget.style.backgroundColor = "#222")
+              }
+              onMouseOut={(e) =>
+                (e.currentTarget.style.backgroundColor = "transparent")
+              }
+              title="Manage Default Tasks"
+            >
+              <ListTodo size={16} />
+              <span>Tasks</span>
+            </button>
+
+            <Link
+              href="/info"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "8px 16px",
+                backgroundColor: "#fff",
+                color: "#000",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "0.85rem",
+                fontWeight: "bold",
+                transition: "all 0.2s",
+                textDecoration: "none",
+              }}
+              onMouseOver={(e) =>
+                (e.currentTarget.style.backgroundColor = "#ddd")
+              }
+              onMouseOut={(e) =>
+                (e.currentTarget.style.backgroundColor = "#fff")
+              }
+              title="Settings & Info"
+            >
+              <User size={16} />
+              <span>{data.name || "Info"}</span>
+            </Link>
           </div>
-
-          <button
-            onClick={() => setIsDefaultTasksModalOpen(true)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "8px 16px",
-              backgroundColor: "#222",
-              color: "#fff",
-              border: "1px solid #444",
-              borderRadius: "4px",
-              cursor: "pointer",
-              transition: "background 0.2s",
-            }}
-            title="Manage Default Tasks"
-          >
-            <ListTodo size={18} />
-            <span>Tasks</span>
-          </button>
-
-          <button
-            onClick={() => setIsModalOpen(true)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "8px 16px",
-              backgroundColor: "#333",
-              color: "#fff",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              transition: "background 0.2s",
-            }}
-            title="Manage Data"
-          >
-            <Settings size={18} />
-            <span>Data</span>
-          </button>
         </div>
       </header>
 
@@ -162,25 +189,58 @@ export default function Home() {
       <div
         style={{
           display: "flex",
-          gap: "20px",
-          padding: "12px 12px",
+          gap: "24px",
+          padding: "12px 32px",
           fontSize: "0.85rem",
-          backgroundColor: "#1a1a1a",
-          borderBottom: "1px solid #333",
+          backgroundColor: "#111",
+          borderBottom: "1px solid #222",
           color: "#aaa",
+          boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.3)",
+          zIndex: 5,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <span style={{ color: "#4b5563" }}>■</span> Past (No Status)
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            fontWeight: "500",
+          }}
+        >
+          <span style={{ color: "#4b5563", fontSize: "1.1rem" }}>■</span> Past
+          (Unrecorded)
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <span style={{ color: "#22c55e" }}>■</span> Completed
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            fontWeight: "500",
+          }}
+        >
+          <span style={{ color: "#22c55e", fontSize: "1.1rem" }}>■</span>{" "}
+          Completed
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <span style={{ color: "#ef4444" }}>■</span> Failed / Missed
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            fontWeight: "500",
+          }}
+        >
+          <span style={{ color: "#ef4444", fontSize: "1.1rem" }}>■</span> Failed
+          / Missed
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <span style={{ color: "#d1d5db" }}>□</span> Future
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            fontWeight: "500",
+          }}
+        >
+          <span style={{ color: "#d1d5db", fontSize: "1.1rem" }}>□</span> Future
         </div>
 
         <div style={{ flex: 1 }}></div>
@@ -190,9 +250,11 @@ export default function Home() {
             alignItems: "center",
             gap: "6px",
             color: "#888",
+            fontStyle: "italic",
           }}
         >
-          <Info size={14} /> Drag to select multiple days.
+          <Info size={14} /> Right-click to toggle colors. Drag right-click to
+          paint multiple.
         </div>
       </div>
 
@@ -236,14 +298,6 @@ export default function Home() {
         onClose={() => setIsDefaultTasksModalOpen(false)}
         defaultTasks={data.defaultTasks || []}
         onSave={updateDefaultTasks}
-      />
-
-      {/* JSON Editor Modal */}
-      <JSONModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        jsonData={exportData()}
-        onImport={importData}
       />
     </div>
   );

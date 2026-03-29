@@ -15,6 +15,7 @@ export interface DayDetails {
 }
 
 export interface LifeData {
+  name?: string; // User's name
   birthDate: string; // YYYY-MM-DD format
   statuses: Record<number, DayStatus>; // Map of day index to status (legacy)
   days: Record<number, DayDetails>; // Map of day index to detailed info
@@ -23,6 +24,7 @@ export interface LifeData {
 }
 
 const DEFAULT_DATA: LifeData = {
+  name: "Traveler",
   birthDate: "1990-01-01",
   statuses: {},
   days: {},
@@ -59,6 +61,10 @@ export function useLifeData() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     }
   }, [data, isLoaded]);
+
+  const updateName = useCallback((name: string) => {
+    setData((prev) => ({ ...prev, name }));
+  }, []);
 
   const updateBirthDate = useCallback((birthDate: string) => {
     setData((prev) => ({ ...prev, birthDate }));
@@ -161,6 +167,7 @@ export function useLifeData() {
   return {
     data,
     isLoaded,
+    updateName,
     updateBirthDate,
     updateSquareSize,
     updateDefaultTasks,
