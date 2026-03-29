@@ -9,6 +9,110 @@ import DayModal from "../components/DayModal";
 import DefaultTasksModal from "../components/DefaultTasksModal";
 import AnalogClock from "../components/AnalogClock";
 
+
+function SetupScreen({ completeSetup }: { completeSetup: (name: string, birthDate: string) => void }) {
+  const [name, setName] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (name && birthDate) {
+      completeSetup(name, birthDate);
+    }
+  };
+
+  return (
+    <div style={{
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      height: "100vh",
+      backgroundColor: "#111",
+      color: "#fff",
+      fontFamily: "sans-serif"
+    }}>
+      <div style={{
+        backgroundColor: "#1a1a1a",
+        padding: "40px",
+        borderRadius: "12px",
+        boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
+        width: "100%",
+        maxWidth: "400px",
+        border: "1px solid #333"
+      }}>
+        <h1 style={{ margin: "0 0 8px 0", fontSize: "1.8rem", textAlign: "center" }}>Welcome to Chronos</h1>
+        <p style={{ margin: "0 0 24px 0", color: "#888", textAlign: "center", fontSize: "0.95rem" }}>
+          Let's setup your Life Calendar.
+        </p>
+        
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <label htmlFor="name" style={{ fontSize: "0.9rem", color: "#ccc" }}>Your Name</label>
+            <input
+              id="name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. John Doe"
+              required
+              style={{
+                padding: "12px",
+                borderRadius: "6px",
+                border: "1px solid #333",
+                backgroundColor: "#111",
+                color: "#fff",
+                fontSize: "1rem",
+                outline: "none"
+              }}
+            />
+          </div>
+          
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <label htmlFor="birthDate" style={{ fontSize: "0.9rem", color: "#ccc" }}>Birth Date</label>
+            <input
+              id="birthDate"
+              type="date"
+              value={birthDate}
+              onChange={(e) => setBirthDate(e.target.value)}
+              required
+              style={{
+                padding: "12px",
+                borderRadius: "6px",
+                border: "1px solid #333",
+                backgroundColor: "#111",
+                color: "#fff",
+                fontSize: "1rem",
+                outline: "none",
+                colorScheme: "dark"
+              }}
+            />
+          </div>
+          
+          <button
+            type="submit"
+            style={{
+              padding: "14px",
+              marginTop: "8px",
+              backgroundColor: "#f5f5f5",
+              color: "#000",
+              border: "none",
+              borderRadius: "6px",
+              fontSize: "1rem",
+              fontWeight: "bold",
+              cursor: "pointer",
+              transition: "opacity 0.2s"
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.opacity = "0.8")}
+            onMouseOut={(e) => (e.currentTarget.style.opacity = "1")}
+          >
+            Start My Calendar
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
   const {
     data,
@@ -16,6 +120,7 @@ export default function Home() {
     updateSquareSize,
     updateDefaultTasks,
     updateShowHelp,
+    completeSetup,
     updateStatuses,
     updateDayDetails,
   } = useLifeData();
@@ -39,8 +144,13 @@ export default function Home() {
     );
   }
 
+  
+  if (isLoaded && !data.setupCompleted) {
+    return <SetupScreen completeSetup={completeSetup} />;
+  }
+
   return (
-    <div
+<div
       style={{
         display: "flex",
         flexDirection: "column",

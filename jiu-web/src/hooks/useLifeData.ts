@@ -22,17 +22,19 @@ export interface LifeData {
   days: Record<number, DayDetails>; // Map of day index to detailed info
   squareSize?: number; // Size of the canvas squares
   defaultTasks?: Task[]; // List of default daily tasks
-  showHelp?: boolean; // Whether to show the legend/help bar
+  showHelp?: boolean;
+  setupCompleted?: boolean; // Whether to show the legend/help bar
 }
 
 const DEFAULT_DATA: LifeData = {
-  name: "Traveler",
-  birthDate: "1990-01-01",
+  name: "",
+  birthDate: "",
   statuses: {},
   days: {},
   squareSize: 14,
   defaultTasks: [],
   showHelp: true,
+  setupCompleted: false,
 };
 
 const STORAGE_KEY = "life_calendar_data";
@@ -46,7 +48,13 @@ export function useLifeData() {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        setData(JSON.parse(stored));
+        
+        const parsed = JSON.parse(stored);
+        if (parsed.setupCompleted === undefined && parsed.birthDate) {
+          parsed.setupCompleted = true;
+        }
+        setData(parsed);
+
       }
     } catch (error) {
       console.error(
@@ -83,6 +91,10 @@ export function useLifeData() {
 
   const updateShowHelp = useCallback((showHelp: boolean) => {
     setData((prev) => ({ ...prev, showHelp }));
+  }, []);
+
+  const completeSetup = useCallback((name: string, birthDate: string) => {
+    setData((prev) => ({ ...prev, name, birthDate, setupCompleted: true }));
   }, []);
 
   const updateStatuses = useCallback(
@@ -179,6 +191,7 @@ export function useLifeData() {
     updateSquareSize,
     updateDefaultTasks,
     updateShowHelp,
+    completeSetup,
     updateStatuses,
     updateDayDetails,
     importData,
