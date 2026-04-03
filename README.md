@@ -9,7 +9,7 @@ This project exists primarily for **studying and practicing Next.js** (routing, 
 ## Tech Stack
 
 - **Next.js** (React)
-- **TypeScript** *(if enabled in the project)*
+- **TypeScript** 
 - **Node.js / npm** *(or yarn / pnpm)*
 
 ## Getting Started
