@@ -1,38 +1,48 @@
 # Calendar Life (Next.js)
 
-This repository contains the **frontend** for the Calendar Life project and is being used **for studying and practicing Next.js**.
+This repository contains the **frontend** for **Calendar Life**, built with **Next.js**.
 
-## About
-- Frontend built with **Next.js**
-- Purpose: learning Next.js concepts (routing, components, data fetching, app structure, etc.)
+## Purpose
+
+This project exists primarily for **studying and practicing Next.js** (routing, components, data fetching patterns, styling, etc.).
+
+## Tech Stack
+
+- **Next.js** (React)
+- **TypeScript** *(if enabled in the project)*
+- **Node.js / npm** *(or yarn / pnpm)*
 
 ## Getting Started
 
-### Requirements
-- Node.js (LTS recommended)
-- npm / yarn / pnpm
+### 1) Install dependencies
 
-### Install
 ```bash
 npm install
 ```
 
-### Run in development
+### 2) Run the development server
+
 ```bash
 npm run dev
 ```
 
 Then open:
-- http://localhost:3000
 
-## Scripts
-- `npm run dev` — starts the development server
-- `npm run build` — builds the project for production
-- `npm run start` — runs the production build (after `build`)
-- `npm run lint` — runs linter (if configured)
+- `http://localhost:3000`
+
+## Scripts (common)
+
+```bash
+npm run dev      # start dev server
+npm run build    # production build
+npm run start    # run production server
+npm run lint     # lint (if configured)
+```
 
 ## Notes
-This project is primarily for **study purposes**, so structure and features may change frequently as new Next.js topics are explored.
+
+- This is a learning-focused frontend repo; structure and features may change as I experiment with Next.js.
 
 ## License
-Add a license if/when you decide.
+
+Add a license if/when you want (MIT, Apache-2.0, etc.).
