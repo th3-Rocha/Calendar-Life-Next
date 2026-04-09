@@ -9,8 +9,11 @@ import DayModal from "../components/DayModal";
 import DefaultTasksModal from "../components/DefaultTasksModal";
 import AnalogClock from "../components/AnalogClock";
 
-
-function SetupScreen({ completeSetup }: { completeSetup: (name: string, birthDate: string) => void }) {
+function SetupScreen({
+  completeSetup,
+}: {
+  completeSetup: (name: string, birthDate: string) => void;
+}) {
   const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState("");
 
@@ -22,32 +25,56 @@ function SetupScreen({ completeSetup }: { completeSetup: (name: string, birthDat
   };
 
   return (
-    <div style={{
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      height: "100vh",
-      backgroundColor: "#111",
-      color: "#fff",
-      fontFamily: "sans-serif"
-    }}>
-      <div style={{
-        backgroundColor: "#1a1a1a",
-        padding: "40px",
-        borderRadius: "12px",
-        boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
-        width: "100%",
-        maxWidth: "400px",
-        border: "1px solid #333"
-      }}>
-        <h1 style={{ margin: "0 0 8px 0", fontSize: "1.8rem", textAlign: "center" }}>Welcome to Chronos</h1>
-        <p style={{ margin: "0 0 24px 0", color: "#888", textAlign: "center", fontSize: "0.95rem" }}>
-          Let's setup your Life Calendar.
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "100vh",
+        backgroundColor: "#111",
+        color: "#fff",
+        fontFamily: "sans-serif",
+      }}
+    >
+      <div
+        style={{
+          backgroundColor: "#1a1a1a",
+          padding: "40px",
+          borderRadius: "12px",
+          boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
+          width: "100%",
+          maxWidth: "400px",
+          border: "1px solid #333",
+        }}
+      >
+        <h1
+          style={{
+            margin: "0 0 8px 0",
+            fontSize: "1.8rem",
+            textAlign: "center",
+          }}
+        >
+          Welcome to Chronos
+        </h1>
+        <p
+          style={{
+            margin: "0 0 24px 0",
+            color: "#888",
+            textAlign: "center",
+            fontSize: "0.95rem",
+          }}
+        >
+          Let&apos;s setup your Life Calendar.
         </p>
-        
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+
+        <form
+          onSubmit={handleSubmit}
+          style={{ display: "flex", flexDirection: "column", gap: "20px" }}
+        >
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            <label htmlFor="name" style={{ fontSize: "0.9rem", color: "#ccc" }}>Your Name</label>
+            <label htmlFor="name" style={{ fontSize: "0.9rem", color: "#ccc" }}>
+              Your Name
+            </label>
             <input
               id="name"
               type="text"
@@ -62,13 +89,18 @@ function SetupScreen({ completeSetup }: { completeSetup: (name: string, birthDat
                 backgroundColor: "#111",
                 color: "#fff",
                 fontSize: "1rem",
-                outline: "none"
+                outline: "none",
               }}
             />
           </div>
-          
+
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            <label htmlFor="birthDate" style={{ fontSize: "0.9rem", color: "#ccc" }}>Birth Date</label>
+            <label
+              htmlFor="birthDate"
+              style={{ fontSize: "0.9rem", color: "#ccc" }}
+            >
+              Birth Date
+            </label>
             <input
               id="birthDate"
               type="date"
@@ -83,11 +115,11 @@ function SetupScreen({ completeSetup }: { completeSetup: (name: string, birthDat
                 color: "#fff",
                 fontSize: "1rem",
                 outline: "none",
-                colorScheme: "dark"
+                colorScheme: "dark",
               }}
             />
           </div>
-          
+
           <button
             type="submit"
             style={{
@@ -100,7 +132,7 @@ function SetupScreen({ completeSetup }: { completeSetup: (name: string, birthDat
               fontSize: "1rem",
               fontWeight: "bold",
               cursor: "pointer",
-              transition: "opacity 0.2s"
+              transition: "opacity 0.2s",
             }}
             onMouseOver={(e) => (e.currentTarget.style.opacity = "0.8")}
             onMouseOut={(e) => (e.currentTarget.style.opacity = "1")}
@@ -121,7 +153,7 @@ export default function Home() {
     updateDefaultTasks,
     updateShowHelp,
     completeSetup,
-    updateStatuses,
+
     updateDayDetails,
   } = useLifeData();
   const [isDefaultTasksModalOpen, setIsDefaultTasksModalOpen] = useState(false);
@@ -144,13 +176,12 @@ export default function Home() {
     );
   }
 
-  
   if (isLoaded && !data.setupCompleted) {
     return <SetupScreen completeSetup={completeSetup} />;
   }
 
   return (
-<div
+    <div
       style={{
         display: "flex",
         flexDirection: "column",
@@ -508,7 +539,6 @@ export default function Home() {
           <LifeCalendarCanvas
             birthDate={data.birthDate}
             statuses={data.statuses}
-            onUpdateStatus={updateStatuses}
             onDayClick={(index) => setSelectedDayIndex(index)}
             squareSize={data.squareSize || 14}
           />
