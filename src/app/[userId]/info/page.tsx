@@ -3,9 +3,13 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowLeft, Save, Download, Upload, Copy } from "lucide-react";
-import { useLifeData } from "../../hooks/useLifeData";
+import { useParams } from "next/navigation";
+import { useLifeData } from "../../../hooks/useLifeData";
 
 export default function InfoPage() {
+  const params = useParams();
+  const userId = params?.userId as string;
+
   const {
     data,
     isLoaded,
@@ -13,17 +17,27 @@ export default function InfoPage() {
     updateBirthDate,
     importData,
     exportData,
-  } = useLifeData();
+  } = useLifeData(userId);
 
   const [localJson, setLocalJson] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Controle de Rascunho (Draft) para a Data de Nascimento
+  const [isEditingDate, setIsEditingDate] = useState(false);
+  const [draftBirthDate, setDraftBirthDate] = useState("");
+
+  useEffect(() => {
+    if (!isEditingDate && data.birthDate) {
+      setDraftBirthDate(data.birthDate);
+    }
+  }, [data.birthDate, isEditingDate]);
+
   useEffect(() => {
     if (isLoaded) {
       setLocalJson(exportData());
     }
-  }, [isLoaded, exportData]);
+  }, [isLoaded, exportData, data]); // Adicionado 'data' para atualizar o JSON ao vivo
 
   if (!isLoaded) {
     return (
@@ -112,7 +126,7 @@ export default function InfoPage() {
           }}
         >
           <Link
-            href="/"
+            href={`/${userId}`}
             style={{
               color: "#888",
               display: "flex",
@@ -156,8 +170,12 @@ export default function InfoPage() {
             Personal Information
           </h2>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "20px" }}
+          >
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+            >
               <label style={{ fontSize: "0.9rem", color: "#aaa" }}>
                 Your Name
               </label>
@@ -181,31 +199,139 @@ export default function InfoPage() {
               />
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "8px" }}
+            >
               <label style={{ fontSize: "0.9rem", color: "#aaa" }}>
                 Birth Date
               </label>
-              <input
-                type="date"
-                value={data.birthDate}
-                onChange={(e) => updateBirthDate(e.target.value)}
-                style={{
-                  padding: "12px",
-                  borderRadius: "6px",
-                  border: "1px solid #333",
-                  backgroundColor: "#1a1a1a",
-                  color: "#fff",
-                  fontSize: "1rem",
-                  outline: "none",
-                  colorScheme: "dark",
-                  transition: "border-color 0.2s",
-                }}
-                onFocus={(e) => (e.target.style.borderColor = "#666")}
-                onBlur={(e) => (e.target.style.borderColor = "#333")}
-              />
+
+              {!isEditingDate ? (
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "12px" }}
+                >
+                  <div
+                    style={{
+                      padding: "12px",
+                      backgroundColor: "#1a1a1a",
+                      border: "1px solid #333",
+                      borderRadius: "6px",
+                      color: "#fff",
+                      flex: 1,
+                      fontSize: "1rem",
+                    }}
+                  >
+                    {data.birthDate
+                      ? new Date(
+                          data.birthDate + "T00:00:00",
+                        ).toLocaleDateString(undefined, {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        })
+                      : "Not set"}
+                  </div>
+                  <button
+                    onClick={() => setIsEditingDate(true)}
+                    style={buttonSecondary}
+                  >
+                    Change Date
+                  </button>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "16px",
+                    padding: "16px",
+                    backgroundColor: "#1a1a1a",
+                    border: "1px solid #444",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      color: "#fb923c",
+                    }}
+                  >
+                    <p
+                      style={{ margin: 0, fontSize: "0.9rem", lineHeight: 1.4 }}
+                    >
+                      <strong>⚠️ Important:</strong> Changing your birth date
+                      will recalculate all your calendar squares to keep your
+                      past entries on their correct absolute dates.
+                    </p>
+                  </div>
+                  <input
+                    type="date"
+                    value={draftBirthDate}
+                    onChange={(e) => setDraftBirthDate(e.target.value)}
+                    style={{
+                      padding: "12px",
+                      borderRadius: "6px",
+                      border: "1px solid #555",
+                      backgroundColor: "#000",
+                      color: "#fff",
+                      fontSize: "1.1rem",
+                      outline: "none",
+                      colorScheme: "dark",
+                      width: "100%",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "12px",
+                      justifyContent: "flex-end",
+                    }}
+                  >
+                    <button
+                      onClick={() => {
+                        setIsEditingDate(false);
+                        setDraftBirthDate(data.birthDate);
+                      }}
+                      style={buttonSecondary}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        updateBirthDate(draftBirthDate);
+                        setIsEditingDate(false);
+                      }}
+                      disabled={
+                        !draftBirthDate || draftBirthDate === data.birthDate
+                      }
+                      style={{
+                        ...buttonPrimary,
+                        backgroundColor:
+                          !draftBirthDate || draftBirthDate === data.birthDate
+                            ? "#555"
+                            : "#22c55e",
+                        color:
+                          !draftBirthDate || draftBirthDate === data.birthDate
+                            ? "#888"
+                            : "#000",
+                        cursor:
+                          !draftBirthDate || draftBirthDate === data.birthDate
+                            ? "not-allowed"
+                            : "pointer",
+                      }}
+                    >
+                      Confirm Change
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             <p style={{ margin: 0, fontSize: "0.85rem", color: "#666" }}>
-              Changes to your profile are saved automatically. Return to the main page to see them applied.
+              Changes to your profile are saved automatically. Return to the
+              main page to see them applied.
             </p>
           </div>
         </div>
@@ -241,7 +367,9 @@ export default function InfoPage() {
                 lineHeight: "1.5",
               }}
             >
-              This is your raw Life Calendar data. Everything is stored locally in your browser. You can copy it to back it up somewhere safe, or paste a backup here and hit "Apply JSON Changes" to restore it.
+              This is your raw Life Calendar data. Everything is stored locally
+              in your browser. You can copy it to back it up somewhere safe, or
+              paste a backup here and hit "Apply JSON Changes" to restore it.
             </p>
           </div>
 

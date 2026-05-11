@@ -78,9 +78,24 @@ export default function DayModal({
   };
 
   const handleSave = () => {
+    const pendingTaskText = newTaskText.trim();
+
+    const tasksToSave = pendingTaskText
+      ? [
+          ...tasks,
+          {
+            id: crypto.randomUUID(),
+            text: pendingTaskText,
+            completed: false,
+            duration:
+              typeof newTaskDuration === "number" ? newTaskDuration : undefined,
+          },
+        ]
+      : tasks;
+
     onSave(dayIndex, {
       status,
-      tasks,
+      tasks: tasksToSave,
       journal,
     });
     onClose();
